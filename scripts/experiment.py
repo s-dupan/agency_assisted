@@ -277,6 +277,12 @@ class RealTimeControl(_BaseTask):
     def run_trial(self, trial):
         self.iti_timer.reset()
 
+        # create wave form for this trial
+        timepoints = np.arange(0, TRIAL_LENGTH, READ_LENGTH)
+        theta = 0
+        self.wave = WAVE_AMPL * np.sin(2 * np.pi * WAVE_FREQ * timepoints + theta)
+        self.wave = iter(self.wave)
+
         # add target to canvas
         # self.target = Target(xy_origin=UI_XY_ORIGIN, theta_target = UI_THETA_TARGET, r1=self.target_var[self.trial.attrs['target']][0], r2=self.target_var[self.trial.attrs['target']][1], rotation=self.target_var[self.trial.attrs['target']][2])
         # self.target.hide()
@@ -337,7 +343,8 @@ class RealTimeControl(_BaseTask):
         data_proc = self.pipeline.process(data)
         # to do - read wave_t from form
         muscle_t = data_proc[0][CONTROL_CHANNELS[0]] - data_proc[0][CONTROL_CHANNELS[1]]   # muscle position at this time
-        wave_t = 0         # wave position at this time
+        # wave_t = 0         # wave position at this time
+        wave_t = next(self.wave)
         error = muscle_t - wave_t
         self.cursor.pos = error, 0
 
@@ -643,6 +650,10 @@ if __name__ == '__main__':
                 raise ValueError('One of the control channels is not calibrated.')
             else:
                 CONTROL_CHANNELS = CONTROL_CHANNELS_NEW
+
+        # read in wave information
+        WAVE_FREQ = cp.getfloat('experiment', 'wave_frequency')
+        WAVE_AMPL = cp.getfloat('experiment', 'wave_amplitude')
 
         # exit()
 
