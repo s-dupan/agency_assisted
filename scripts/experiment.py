@@ -35,11 +35,11 @@ from axopy.experiment import Experiment
 from axopy.task import Task
 from axopy import util
 from axopy.timing import Counter
-from axopy.gui.canvas import Canvas, Text, Circle
+from axopy.gui.canvas import Canvas, Text, Circle, Line
 from axopy.pipeline import (Windower, Pipeline, Filter,
                             FeatureExtractor, Ensure2D, Block)
 from PyQt5.QtWidgets import QDesktopWidget
-from src.graphics import CalibWidget, Basket, Target
+from src.graphics import CalibWidget
 from axopy.features import MeanAbsoluteValue
 
 
@@ -248,9 +248,13 @@ class RealTimeControl(_BaseTask):
         self.text_score.pos = (0,0)
         self.text_score.hide()
 
+        self.line = Line(0, -.25, 0, .25, width=0.01, color= 'white')
+        self.line.hide()
+
         # self.task_canvas.add_item(self.basket)
         self.task_canvas.add_item(self.cursor)
         self.task_canvas.add_item(self.text_score)
+        self.task_canvas.add_item(self.line)
 
         self.task_canvas.move(monitor.left(), monitor.top())
         self.task_canvas.showFullScreen()
@@ -286,6 +290,7 @@ class RealTimeControl(_BaseTask):
         # trial.add_array('state', stack_axis=1)
         # self.rest_array = np.array([])
 
+        self.line.show()
         self.pipeline.clear()
         self.connect(self.daqstream.updated, self.update_iti)
 
@@ -391,6 +396,7 @@ class RealTimeControl(_BaseTask):
     def finish_iti(self):
         # self.basket.show()
         self.cursor.show()
+        winsound.PlaySound('beep_1000Hz_200ms.wav',1)
         self.disconnect(self.daqstream.updated, self.update_iti)
         # self.connect(self.daqstream.updated, self.update_rest)
         self.connect(self.daqstream.updated, self.update_trial)
@@ -424,6 +430,7 @@ class RealTimeControl(_BaseTask):
 
     def finish_trial(self):
         self.cursor.hide()
+        self.line.hide()
         # calculate score
         self.score = 1. - np.mean(np.absolute(self.trial.arrays['error'].data))
         self.text_score.qitem.setText("{:.0f} %".format(self.score*100))
@@ -440,6 +447,7 @@ class RealTimeControl(_BaseTask):
             ))
         else:
             self.text_score.hide()
+            self.line.show()
         self.trial.attrs['score'] = self.score
         # self.trial.attrs['percent_hold'] = self.score
         # self.trial.attrs['boundaries'] = self.radii
