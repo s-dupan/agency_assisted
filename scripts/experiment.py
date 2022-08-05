@@ -199,28 +199,13 @@ class RealTimeControl(_BaseTask):
     def __init__(self):
         super(RealTimeControl, self).__init__()
         self.advance_block_key = util.key_return
-        # self.prepare_targets()
         self.prepare_timers()
-
-    # def prepare_targets(self):
-    #     if NUM_TARGETS == 12:
-    #         self.radii = 0.303, 0.451, 0.673, 1
-    #     elif NUM_TARGETS == 8:
-    #         self.radii = 0.303, 0.550, 1
-    #     elif NUM_TARGETS == 4:
-    #         self.radii = 0.303, 1
-
-    #     self.target_var = [(self.radii[i]*UI_XY_SCALE, self.radii[i+1]*UI_XY_SCALE, UI_ROTATION+j*UI_THETA_TARGET) for i in range(NUM_TARGETS//4) for j in range(4)]
 
     def prepare_timers(self):
         self.iti_timer = Counter(int(TRIAL_INTERVAL / READ_LENGTH))
         self.iti_timer.timeout.connect(self.finish_iti)
         self.trial_timer = Counter(int(TRIAL_LENGTH / READ_LENGTH))
         self.trial_timer.timeout.connect(self.finish_trial)
-        # self.reach_timer = Counter(int(REACH_LENGTH/ READ_LENGTH))
-        # self.reach_timer.timeout.connect(self.finish_reach)
-        # self.hold_timer = Counter(int(HOLD_LENGTH/ READ_LENGTH))
-        # self.hold_timer.timeout.connect(self.finish_hold)
         self.score_timer = Counter(int(SCORE_LENGTH / READ_LENGTH))
         self.score_timer.timeout.connect(self.finish_score)
 
@@ -229,7 +214,6 @@ class RealTimeControl(_BaseTask):
             block = design.add_block()
             for t in range(N_TRIALS):
                     block.add_trial()
-            # block.shuffle()
 
     def prepare_graphics(self, container):
         self.canvas = Canvas()
@@ -239,11 +223,8 @@ class RealTimeControl(_BaseTask):
         monitor = QDesktopWidget().screenGeometry(DISPLAY_MONITOR)
 
         # add canvas elements
-        # self.cursor = Circle(diameter = 0.0625*UI_XY_SCALE, color = 'green')
         self.cursor = Circle(diameter=.1, color= 'green')
         self.cursor.hide()
-        # self.basket = Basket(xy_origin=UI_XY_ORIGIN, size = 0.2*UI_XY_SCALE, xy_rotate = UI_ROTATION)
-        # self.basket.hide()
         self.text_score = Text(text='test', color='white')
         self.text_score.pos = (0,0)
         self.text_score.hide()
@@ -283,18 +264,10 @@ class RealTimeControl(_BaseTask):
         self.wave = WAVE_AMPL * np.sin(2 * np.pi * WAVE_FREQ * timepoints + theta)
         self.wave = iter(self.wave)
 
-        # add target to canvas
-        # self.target = Target(xy_origin=UI_XY_ORIGIN, theta_target = UI_THETA_TARGET, r1=self.target_var[self.trial.attrs['target']][0], r2=self.target_var[self.trial.attrs['target']][1], rotation=self.target_var[self.trial.attrs['target']][2])
-        # self.target.hide()
-        # self.task_canvas.add_item(self.target)
-
         trial.add_array('data_raw', stack_axis=1)
         trial.add_array('data_proc', stack_axis=1)
         trial.add_array('error', stack_axis=1)
         trial.add_array('wave', stack_axis=1)
-        # trial.add_array('hold', stack_axis=1)
-        # trial.add_array('state', stack_axis=1)
-        # self.rest_array = np.array([])
 
         self.line.show()
         self.pipeline.clear()
@@ -302,9 +275,7 @@ class RealTimeControl(_BaseTask):
 
     def update_iti(self, data):
         data_proc = self.pipeline.process(data)
-        # self.cursor.pos = self.transform_data((data_proc[0][CONTROL_CHANNELS]))
 
-        # to do - read wave_t from form
         muscle_t = data_proc[0][CONTROL_CHANNELS[0]] - data_proc[0][CONTROL_CHANNELS[1]]   # muscle position at this time
         wave_t = 0         # wave position at this time
         error = muscle_t - wave_t
@@ -315,35 +286,11 @@ class RealTimeControl(_BaseTask):
         self.trial.arrays['error'].stack(error)
         self.trial.arrays['wave'].stack(wave_t)
 
-        # self.trial.arrays['hold'].stack(np.nan)
-        # self.trial.arrays['state'].stack(np.nan)
         self.iti_timer.increment()
-        # if self.cursor.collides_with(self.basket):
-        #     self.rest_array = np.append(self.rest_array, 1)
-        # else:
-        #     self.rest_array = np.append(self.rest_array, 0)
-
-    # def update_rest(self, data):
-    #     data_proc = self.pipeline.process(data)
-    #     self.cursor.pos = self.transform_data((data_proc[0][CONTROL_CHANNELS]))
-
-    #     self.trial.arrays['data_raw'].stack(data)
-    #     self.trial.arrays['data_proc'].stack(np.transpose(data_proc))
-    #     self.trial.arrays['hold'].stack(np.nan)
-    #     self.trial.arrays['state'].stack(np.nan)
-    #     if self.cursor.collides_with(self.basket):
-    #         self.rest_array = np.append(self.rest_array, [1])
-    #     else:
-    #         self.rest_array = np.append(self.rest_array, [0])
-
-    #     if np.all(self.rest_array[-int(WIN_SIZE_REST/READ_LENGTH):] == 1):
-    #         self.finish_rest()
 
     def update_trial(self,data):
         data_proc = self.pipeline.process(data)
-        # to do - read wave_t from form
         muscle_t = data_proc[0][CONTROL_CHANNELS[0]] - data_proc[0][CONTROL_CHANNELS[1]]   # muscle position at this time
-        # wave_t = 0         # wave position at this time
         wave_t = next(self.wave)
         error = muscle_t - wave_t
         self.cursor.pos = error, 0
@@ -355,37 +302,8 @@ class RealTimeControl(_BaseTask):
 
         self.trial_timer.increment()
 
-
-    # def update_reach(self, data):
-    #     data_proc = self.pipeline.process(data)
-    #     self.cursor.pos = self.transform_data((data_proc[0][CONTROL_CHANNELS]))
-
-    #     self.trial.arrays['data_raw'].stack(data)
-    #     self.trial.arrays['data_proc'].stack(np.transpose(data_proc))
-    #     if self.cursor.collides_with(self.target):
-    #         self.trial.arrays['hold'].stack(1)
-    #     else:
-    #         self.trial.arrays['hold'].stack(0)
-    #     self.trial.arrays['state'].stack(0)
-    #     self.reach_timer.increment()
-
-    # def update_hold(self, data):
-    #     data_proc = self.pipeline.process(data)
-    #     self.cursor.pos = self.transform_data((data_proc[0][CONTROL_CHANNELS]))
-
-    #     self.trial.arrays['data_raw'].stack(data)
-    #     self.trial.arrays['data_proc'].stack(np.transpose(data_proc))
-    #     if self.cursor.collides_with(self.target):
-    #         self.trial.arrays['hold'].stack(1)
-    #     else:
-    #         self.trial.arrays['hold'].stack(0)
-    #     self.trial.arrays['state'].stack(1)
-    #     self.hold_timer.increment()
-
     def update_score(self, data):
         data_proc = self.pipeline.process(data)
-        # self.cursor.pos = self.transform_data((data_proc[0][CONTROL_CHANNELS]))
-        # to do - read wave_t from form
         muscle_t = data_proc[0][CONTROL_CHANNELS[0]] - data_proc[0][CONTROL_CHANNELS[1]]   # muscle position at this time
         wave_t = 0         # wave position at this time
         error = muscle_t - wave_t
@@ -396,44 +314,13 @@ class RealTimeControl(_BaseTask):
         self.trial.arrays['error'].stack(error)
         self.trial.arrays['wave'].stack(wave_t)
 
-        # self.trial.arrays['hold'].stack(np.nan)
-        # self.trial.arrays['state'].stack(np.nan)
         self.score_timer.increment()
 
     def finish_iti(self):
-        # self.basket.show()
         self.cursor.show()
         winsound.PlaySound('beep_1000Hz_200ms.wav',1)
         self.disconnect(self.daqstream.updated, self.update_iti)
-        # self.connect(self.daqstream.updated, self.update_rest)
         self.connect(self.daqstream.updated, self.update_trial)
-
-    # def finish_rest(self):
-    #     self.target.show()
-    #     self.cursor.show()
-    #     self.reach_timer.reset()
-    #     winsound.PlaySound('beep_1000Hz_200ms.wav',1)
-    #     self.disconnect(self.daqstream.updated, self.update_rest)
-    #     self.connect(self.daqstream.updated, self.update_reach)
-
-    # def finish_reach(self):
-    #     self.hold_timer.reset()
-    #     winsound.PlaySound('beep_1000Hz_200ms.wav',1)
-    #     self.disconnect(self.daqstream.updated, self.update_reach)
-    #     self.connect(self.daqstream.updated, self.update_hold)
-
-    # def finish_hold(self):
-    #     self.basket.hide()
-    #     self.target.hide()
-    #     self.cursor.hide()
-    #     # calculate score
-    #     hold_period = np.where(self.trial.arrays['state'].data == 1)[0]
-    #     self.score = np.mean(self.trial.arrays['hold'].data[hold_period])
-    #     self.text_score.qitem.setText("{:.0f} %".format(self.score*100))
-    #     self.text_score.show()
-    #     self.score_timer.reset()
-    #     self.disconnect(self.daqstream.updated, self.update_hold)
-    #     self.connect(self.daqstream.updated, self.update_score)
 
     def finish_trial(self):
         self.cursor.hide()
@@ -456,13 +343,7 @@ class RealTimeControl(_BaseTask):
             self.text_score.hide()
             self.line.show()
         self.trial.attrs['score'] = self.score
-        # self.trial.attrs['percent_hold'] = self.score
-        # self.trial.attrs['boundaries'] = self.radii
-        # self.trial.attrs['target_var'] = self.target_var[self.trial.attrs['target']]
-        # self.trial.attrs['control_ch_0'] = CONTROL_CHANNELS[0]
-        # self.trial.attrs['control_ch_1'] = CONTROL_CHANNELS[1]
         self.writer.write(self.trial)
-        # self.disconnect(self.daqstream.updated, self.update)
         self.disconnect(self.daqstream.updated, self.update_score)
         self.next_trial()
 
@@ -475,16 +356,6 @@ class RealTimeControl(_BaseTask):
             self.finish()
         else:
             super().key_press(key)
-
-    # def transform_data(self, pos):
-    #     "New position after rotation and translation. Based on interface"
-    #     x = pos[0]
-    #     y = pos[1]
-
-    #     x_new = x*UI_XY_SCALE*np.cos(np.radians(UI_ROTATION)) - y*UI_XY_SCALE*np.sin(np.radians(UI_ROTATION)) + UI_XY_ORIGIN[0]
-    #     y_new = x*UI_XY_SCALE*np.sin(np.radians(UI_ROTATION)) + y*UI_XY_SCALE*np.cos(np.radians(UI_ROTATION)) + UI_XY_ORIGIN[1]
-
-    #     return x_new, y_new
 
 if __name__ == '__main__':
     parser = ArgumentParser()
@@ -511,7 +382,6 @@ if __name__ == '__main__':
     LOWCUT = cp.getfloat('processing', 'lowcut')
     HIGHCUT = cp.getfloat('processing', 'highcut')
     FILTER_ORDER = cp.getfloat('processing', 'filter_order')
-    # NUM_TARGETS = cp.getint('experiment', 'targets')
     channels_task = cp.getint('control', 'channels_task')
 
     if args.trigno:
@@ -522,7 +392,6 @@ if __name__ == '__main__':
     elif args.myo:
         import myo
         from pydaqs.myo import MyoEMG
-        # CHANNELS = list(range(1,9))   # could decide to only use 2
         S_RATE = 200.
         if HIGHCUT > 100:
             # due to low sampling rate, code won't work if highcut filter is too high
@@ -590,13 +459,8 @@ if __name__ == '__main__':
     elif args.test:
         N_TRIALS = cp.getint('control', 'n_trials')
         N_BLOCKS = cp.getint('control', 'n_blocks')
-        # TARGETS = [i for i in range(NUM_TARGETS)]
-        # INTERFACE = cp.get('experiment', 'interface')
-        # WIN_SIZE_REST = cp.getfloat('control', 'win_size_rest')
 
         TRIAL_INTERVAL = cp.getfloat('control', 'trial_interval')
-        # REACH_LENGTH = cp.getfloat('control', 'reach')
-        # HOLD_LENGTH = cp.getfloat('control', 'hold')
         TRIAL_LENGTH = cp.getfloat('control', 'trial_length')
         SCORE_LENGTH = cp.getfloat('control', 'score_present')
         DISPLAY_MONITOR = cp.getint('control', 'display_monitor')
@@ -619,11 +483,6 @@ if __name__ == '__main__':
         f = h5py.File([last_calib + '\\c_select.hdf5'][0], 'r')
         c_select = f['0'][0:]
         print('c_select: ',c_select)
-
-        # # update targets based on number of n_trials
-        # if N_TRIALS%len(TARGETS) != 0:
-        #     raise ValueError('Please make sure number of trials is a multiple of number of targets.')
-        # TARGETS = TARGETS*int(N_TRIALS/len(TARGETS))
 
         # determine control channels
         CONTROL_CHANNELS = np.array([])
@@ -654,24 +513,6 @@ if __name__ == '__main__':
         # read in wave information
         WAVE_FREQ = cp.getfloat('experiment', 'wave_frequency')
         WAVE_AMPL = cp.getfloat('experiment', 'wave_amplitude')
-
-        # exit()
-
-        # set interface variables based on control task
-        # if INTERFACE == 'V-shape':
-        #     print('Interface: V-shape')
-        #     UI_XY_ORIGIN = 0., -0.9
-        #     UI_XY_SCALE = 1.5
-        #     UI_ROTATION = 45
-        #     UI_THETA_TARGET = 22.5
-        # elif INTERFACE == 'centre-around':
-        #     print('Interface: centre-around')
-        #     UI_XY_ORIGIN = 0., 0.
-        #     UI_XY_SCALE = 1
-        #     UI_ROTATION = 22.5
-        #     UI_THETA_TARGET = 45
-        # else:
-        #     raise ValueError('Unknown interface. Please choose either V-shape or centre-around.')
 
         exp.run(RealTimeControl())
 
