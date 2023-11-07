@@ -109,6 +109,8 @@ class Cursor(Item):
         qitem.setPos(0, -0.5)   # bring to middle screen
         super(Cursor, self).__init__(qitem)
 
+# you have to add the sinusoid here 
+
 class CalibWidget(QWidget):
     """ Visualising calibration information for 1 channel
 
