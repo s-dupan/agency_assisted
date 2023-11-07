@@ -228,14 +228,49 @@ class RealTimeControl(_BaseTask):
         self.text_score = Text(text='test', color='white')
         self.text_score.pos = (0,0)
         self.text_score.hide()
+        
+        self.timepoints = np.arange(1, -1, -2/(TRIAL_LENGTH/READ_LENGTH))
+        theta = 0
+        self.wave = WAVE_AMPL * np.sin(2 * np.pi * WAVE_FREQ * self.timepoints + theta)
+        self.wave2 = WAVE_AMPL * np.sin(2 * np.pi * WAVE_FREQ * (self.timepoints+1) + theta)
+        wave_t = 0  
+        self.wave = iter(self.wave)
+        self.wave2 = iter(self.wave2)
+        self.timepoints = iter(self.timepoints)
+        
+        wave_t = next(self.wave)
+        wave_t2 = next(self.wave2)
+        time_t = next(self.timepoints)
+        
+        # for i in self.wave:
+            # x1 = wave_t # wave_t
+            # y1 = time_t  
+            # x2 = x1 + wave_t  
+            # y2 = y1 
+            # self.wave_line = Line(x1, y1, x2, y2, width=0.01, color='white')
+        # Calculate the waveform coordinates based on wave_t and time_t
+        x1 = wave_t
+        y1 = time_t  
+        x2 = wave_t2
+        y2 = y1
+        
+        # self.task_canvas.clear()
+        self.wave_line = Line(x1, y1, x2, y2, width=0.01, color='white')
+        self.task_canvas.add_item(self.wave_line)
 
-        self.line = Line(0, -.25, 0, .25, width=0.01, color= 'white')
-        self.line.hide()
+        # self.line = Line(0, -.25, 0, .25, width=0.01, color= 'white')
+        # self.line.hide()
+        
+        # self.wave_line = Line(0, 0, 0.01, 0.01, width=0.01, color='white')
+        # self.wave_line.hide
+        # self.wave_circles = []
 
         # self.task_canvas.add_item(self.basket)
         self.task_canvas.add_item(self.cursor)
         self.task_canvas.add_item(self.text_score)
-        self.task_canvas.add_item(self.line)
+        # self.task_canvas.add_item(self.line)
+        # self.task_canvas.add_item(self.wave)
+        # self.task_canvas.add_item(self.wave_line)
 
         self.task_canvas.move(monitor.left(), monitor.top())
         self.task_canvas.showFullScreen()
@@ -259,17 +294,18 @@ class RealTimeControl(_BaseTask):
         self.iti_timer.reset()
 
         # create wave form for this trial
-        timepoints = np.arange(0, TRIAL_LENGTH, READ_LENGTH)
+        self.timepoints = np.arange(1, -1, -2/(TRIAL_LENGTH/READ_LENGTH))
         theta = 0
-        self.wave = WAVE_AMPL * np.sin(2 * np.pi * WAVE_FREQ * timepoints + theta)
+        self.wave = WAVE_AMPL * np.sin(2 * np.pi * WAVE_FREQ * self.timepoints + theta)
         self.wave = iter(self.wave)
+        self.timepoints = iter(self.timepoints)
 
         trial.add_array('data_raw', stack_axis=1)
         trial.add_array('data_proc', stack_axis=1)
         trial.add_array('error', stack_axis=1)
         trial.add_array('wave', stack_axis=1)
 
-        self.line.show()
+        # self.wave_line.show()
         self.pipeline.clear()
         self.connect(self.daqstream.updated, self.update_iti)
 
@@ -277,9 +313,10 @@ class RealTimeControl(_BaseTask):
         data_proc = self.pipeline.process(data)
 
         muscle_t = data_proc[0][CONTROL_CHANNELS[0]] - data_proc[0][CONTROL_CHANNELS[1]]   # muscle position at this time
-        wave_t = 0         # wave position at this time
+        wave_t = 0         # wave position at this time 
         error = muscle_t - wave_t
-        self.cursor.pos = error, 0
+        self.cursor.pos = muscle_t, 0 #change to plot muscle_t , y = initial poit (top of screen)
+        
 
         self.trial.arrays['data_raw'].stack(data)
         self.trial.arrays['data_proc'].stack(np.transpose(data_proc))
@@ -292,8 +329,21 @@ class RealTimeControl(_BaseTask):
         data_proc = self.pipeline.process(data)
         muscle_t = data_proc[0][CONTROL_CHANNELS[0]] - data_proc[0][CONTROL_CHANNELS[1]]   # muscle position at this time
         wave_t = next(self.wave)
+        time_t = next(self.timepoints)
         error = muscle_t - wave_t
-        self.cursor.pos = error, 0
+        self.cursor.pos = muscle_t, time_t #change to plot muscle_t
+        
+        # circle = Circle(x=x2, y=y2, diameter=0.01, color='white')
+        # self.task_canvas.add_item(circle)
+        # self.wave_circles.append(circle) 
+
+        # Create a Point item for this point and add it to the canvas
+        # point = Point(x1, y1, size=1, color='white')
+        # self.task_canvas.add_item(point)
+        # Add the point to the array for the waveform
+        # self.wave_points.append(point)
+        # Update the Line's position using the points
+        # self.wave_line.set_points([point.get_pos() for point in self.wave_points])
 
         self.trial.arrays['data_raw'].stack(data)
         self.trial.arrays['data_proc'].stack(np.transpose(data_proc))
@@ -317,6 +367,7 @@ class RealTimeControl(_BaseTask):
         self.score_timer.increment()
 
     def finish_iti(self):
+        self.wave_line.show()
         self.cursor.show()
         winsound.PlaySound('beep_1000Hz_200ms.wav',1)
         self.disconnect(self.daqstream.updated, self.update_iti)
@@ -324,7 +375,7 @@ class RealTimeControl(_BaseTask):
 
     def finish_trial(self):
         self.cursor.hide()
-        self.line.hide()
+        self.wave_line.hide() #change to wave
         # calculate score
         self.score = 1. - np.mean(np.absolute(self.trial.arrays['error'].data))
         self.text_score.qitem.setText("{:.0f} %".format(self.score*100))
@@ -341,7 +392,7 @@ class RealTimeControl(_BaseTask):
             ))
         else:
             self.text_score.hide()
-            self.line.show()
+            # self.wave_line.show()
         self.trial.attrs['score'] = self.score
         self.writer.write(self.trial)
         self.disconnect(self.daqstream.updated, self.update_score)
@@ -397,7 +448,7 @@ if __name__ == '__main__':
             # due to low sampling rate, code won't work if highcut filter is too high
             HIGHCUT = 100
         myo.init(
-            sdk_path=r'C:\Users\user\coding\myo-python\myo-sdk-win-0.9.0')
+            sdk_path=r'C:\Users\Sarah\Documents\5th year\Thesis\coding\myo-python\myo-sdk-win-0.9.0')
         dev = MyoEMG(channels=CHANNELS, zero_based=False,
                      samples_per_read=int(S_RATE * READ_LENGTH))
     elif args.noise:
