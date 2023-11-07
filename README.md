@@ -17,3 +17,4 @@ The experiment consists of two parts:
 ## Notes
 1. Replace `--trigno` with `--noise`, `--myo` or `quattro` as appropriate.
 2. All settings are stored and loaded from an external configuration file (``config.ini``). This file is also saved every time the code is run.# tracking-error
+# thesis
