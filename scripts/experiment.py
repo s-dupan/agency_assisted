@@ -233,38 +233,22 @@ class RealTimeControl(_BaseTask):
         theta = 0
         self.wave = WAVE_AMPL * np.sin(2 * np.pi * WAVE_FREQ * self.timepoints + theta)
         self.wave2 = WAVE_AMPL * np.sin(2 * np.pi * WAVE_FREQ * (self.timepoints+1) + theta)
-        wave_t = 0  
-        self.wave = iter(self.wave)
-        self.wave2 = iter(self.wave2)
-        self.timepoints = iter(self.timepoints)
         
-        wave_t = next(self.wave)
-        wave_t2 = next(self.wave2)
-        time_t = next(self.timepoints)
-        
-        # for i in self.wave:
-            # x1 = wave_t # wave_t
-            # y1 = time_t  
-            # x2 = x1 + wave_t  
-            # y2 = y1 
-            # self.wave_line = Line(x1, y1, x2, y2, width=0.01, color='white')
-        # Calculate the waveform coordinates based on wave_t and time_t
-        x1 = wave_t
-        y1 = time_t  
-        x2 = wave_t2
-        y2 = y1
-        
-        # self.task_canvas.clear()
-        self.wave_line = Line(x1, y1, x2, y2, width=0.01, color='white')
-        self.task_canvas.add_item(self.wave_line)
-
-        # self.line = Line(0, -.25, 0, .25, width=0.01, color= 'white')
-        # self.line.hide()
-        
-        # self.wave_line = Line(0, 0, 0.01, 0.01, width=0.01, color='white')
-        # self.wave_line.hide
-        # self.wave_circles = []
-
+        # Create a loop to iterate through the wave points
+        for i in range(len(self.timepoints)):
+            wave_t = self.wave[i]
+            wave_t2 = self.wave2[i]
+            time_t = self.timepoints[i]
+            
+            x1 = wave_t 
+            y1 = time_t  
+            x2 = wave_t2
+            y2 = y1
+            
+            self.task_canvas.clear()
+            self.wave_line = Line(x1, y1, x2, y2, width=0.01, color='white')
+            self.task_canvas.add_item(self.wave_line)
+    
         # self.task_canvas.add_item(self.basket)
         self.task_canvas.add_item(self.cursor)
         self.task_canvas.add_item(self.text_score)
@@ -305,7 +289,7 @@ class RealTimeControl(_BaseTask):
         trial.add_array('error', stack_axis=1)
         trial.add_array('wave', stack_axis=1)
 
-        # self.wave_line.show()
+        self.wave_line.show()
         self.pipeline.clear()
         self.connect(self.daqstream.updated, self.update_iti)
 
@@ -332,18 +316,6 @@ class RealTimeControl(_BaseTask):
         time_t = next(self.timepoints)
         error = muscle_t - wave_t
         self.cursor.pos = muscle_t, time_t #change to plot muscle_t
-        
-        # circle = Circle(x=x2, y=y2, diameter=0.01, color='white')
-        # self.task_canvas.add_item(circle)
-        # self.wave_circles.append(circle) 
-
-        # Create a Point item for this point and add it to the canvas
-        # point = Point(x1, y1, size=1, color='white')
-        # self.task_canvas.add_item(point)
-        # Add the point to the array for the waveform
-        # self.wave_points.append(point)
-        # Update the Line's position using the points
-        # self.wave_line.set_points([point.get_pos() for point in self.wave_points])
 
         self.trial.arrays['data_raw'].stack(data)
         self.trial.arrays['data_proc'].stack(np.transpose(data_proc))
@@ -375,7 +347,7 @@ class RealTimeControl(_BaseTask):
 
     def finish_trial(self):
         self.cursor.hide()
-        self.wave_line.hide() #change to wave
+        self.wave_line.hide()
         # calculate score
         self.score = 1. - np.mean(np.absolute(self.trial.arrays['error'].data))
         self.text_score.qitem.setText("{:.0f} %".format(self.score*100))
