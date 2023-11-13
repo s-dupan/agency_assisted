@@ -39,7 +39,7 @@ from axopy.gui.canvas import Canvas, Text, Circle, Line
 from axopy.pipeline import (Windower, Pipeline, Filter,
                             FeatureExtractor, Ensure2D, Block)
 from PyQt5.QtWidgets import QDesktopWidget
-from src.graphics import CalibWidget
+from src.graphics import CalibWidget, Sinusoid
 from axopy.features import MeanAbsoluteValue
 
 
@@ -229,32 +229,16 @@ class RealTimeControl(_BaseTask):
         self.text_score.pos = (0,0)
         self.text_score.hide()
         
-        self.timepoints = np.arange(1, -1, -2/(TRIAL_LENGTH/READ_LENGTH))
-        theta = 0
-        self.wave = WAVE_AMPL * np.sin(2 * np.pi * WAVE_FREQ * self.timepoints + theta)
-        self.wave2 = WAVE_AMPL * np.sin(2 * np.pi * WAVE_FREQ * (self.timepoints+1) + theta)
-        
-        # Create a loop to iterate through the wave points
-        for i in range(len(self.timepoints)):
-            wave_t = self.wave[i]
-            wave_t2 = self.wave2[i]
-            time_t = self.timepoints[i]
-            
-            x1 = wave_t 
-            y1 = time_t  
-            x2 = wave_t2
-            y2 = y1
-            
-            self.task_canvas.clear()
-            self.wave_line = Line(x1, y1, x2, y2, width=0.01, color='white')
-            self.task_canvas.add_item(self.wave_line)
+        timepoints = np.arange(1, -1, -2*READ_LENGTH/TRIAL_LENGTH)
+        theta = 0       # phase
+        wave = WAVE_AMPL * np.sin(2 * np.pi * WAVE_FREQ * (timepoints * TRIAL_LENGTH/2) + theta)
+        self.wave_line = Sinusoid(x=wave, y=timepoints, color='white', linewidth=0.01)
+        # self.wave.hide()
+        self.task_canvas.add_item(self.wave_line)
     
         # self.task_canvas.add_item(self.basket)
         self.task_canvas.add_item(self.cursor)
         self.task_canvas.add_item(self.text_score)
-        # self.task_canvas.add_item(self.line)
-        # self.task_canvas.add_item(self.wave)
-        # self.task_canvas.add_item(self.wave_line)
 
         self.task_canvas.move(monitor.left(), monitor.top())
         self.task_canvas.showFullScreen()
@@ -289,7 +273,6 @@ class RealTimeControl(_BaseTask):
         trial.add_array('error', stack_axis=1)
         trial.add_array('wave', stack_axis=1)
 
-        self.wave_line.show()
         self.pipeline.clear()
         self.connect(self.daqstream.updated, self.update_iti)
 
@@ -364,7 +347,6 @@ class RealTimeControl(_BaseTask):
             ))
         else:
             self.text_score.hide()
-            # self.wave_line.show()
         self.trial.attrs['score'] = self.score
         self.writer.write(self.trial)
         self.disconnect(self.daqstream.updated, self.update_score)
@@ -373,6 +355,7 @@ class RealTimeControl(_BaseTask):
     def finish(self):
         self.daqstream.stop()
         self.finished.emit()
+        self.text_score.hide()
 
     def key_press(self, key):
         if key == util.key_escape:

@@ -109,6 +109,32 @@ class Cursor(Item):
         qitem.setPos(0, -0.5)   # bring to middle screen
         super(Cursor, self).__init__(qitem)
 
+class Sinusoid(Item):
+    """Collection of paths that forms a sinusoid on the screen.
+    
+    Parameters
+    ----------
+    x: array
+        x values of wave
+    y: arry
+        y values of wave
+    linewidth : float
+        Thickness of each line that makes up the target
+    color = str
+        Color of the lines making up the target
+    """
+
+    def __init__(self, x, y, linewidth=0.01, color='white'):
+        path = QtGui.QPainterPath()
+        path.moveTo(x[0],y[0])
+        for i in range(len(x)):
+            path.lineTo(x[i],y[i])
+        qitem = QtWidgets.QGraphicsPathItem(path)
+        self.br = QtGui.QBrush(QtGui.QColor(color))
+        # qitem.setBrush(br)        # fill color
+        qitem.setPen(QtGui.QPen(self.br, linewidth))
+        super(Sinusoid, self).__init__(qitem)
+
 class CalibWidget(QWidget):
     """ Visualising calibration information for 1 channel
 
