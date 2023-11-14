@@ -229,10 +229,10 @@ class RealTimeControl(_BaseTask):
         self.text_score.pos = (0,0)
         self.text_score.hide()
         
-        timepoints = np.arange(1, -1, -2*READ_LENGTH/TRIAL_LENGTH)
+        self.timepoints = np.arange(1, -1, -2*READ_LENGTH/TRIAL_LENGTH)
         theta = 0       # phase
-        wave = WAVE_AMPL * np.sin(2 * np.pi * WAVE_FREQ * (timepoints * TRIAL_LENGTH/2) + theta)
-        self.wave_line = Sinusoid(x=wave, y=timepoints, color='white', linewidth=0.01)
+        self.wave = WAVE_AMPL * np.sin(2 * np.pi * WAVE_FREQ * (self.timepoints * TRIAL_LENGTH/2) + theta)
+        self.wave_line = Sinusoid(x=self.wave, y=self.timepoints, color='white', linewidth=0.01)
         # self.wave.hide()
         self.task_canvas.add_item(self.wave_line)
     
@@ -262,9 +262,7 @@ class RealTimeControl(_BaseTask):
         self.iti_timer.reset()
 
         # create wave form for this trial
-        self.timepoints = np.arange(1, -1, -2/(TRIAL_LENGTH/READ_LENGTH))
         theta = 0
-        self.wave = WAVE_AMPL * np.sin(2 * np.pi * WAVE_FREQ * self.timepoints + theta)
         self.wave = iter(self.wave)
         self.timepoints = iter(self.timepoints)
 
@@ -299,6 +297,8 @@ class RealTimeControl(_BaseTask):
         time_t = next(self.timepoints)
         error = muscle_t - wave_t
         self.cursor.pos = muscle_t, time_t #change to plot muscle_t
+        
+        self.text_score.hide()
 
         self.trial.arrays['data_raw'].stack(data)
         self.trial.arrays['data_proc'].stack(np.transpose(data_proc))
