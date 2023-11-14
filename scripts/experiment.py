@@ -59,19 +59,25 @@ class _BaseTask(Task):
         self.pipeline = self.make_pipeline()
 
     def make_pipeline(self):
-        b,a = butter(FILTER_ORDER,
-                      (LOWCUT / S_RATE / 2., HIGHCUT / S_RATE / 2.),
-                      'bandpass')
-        pipeline = Pipeline([
-            Windower(int(S_RATE * WIN_SIZE)),
-            Filter(b, a=a,
-                   overlap=(int(S_RATE * WIN_SIZE) -
-                            int(S_RATE * READ_LENGTH))),
-            FeatureExtractor([('MAV', MeanAbsoluteValue())],
-                             n_channels),
-            Ensure2D(orientation='row'),
-            Normalize()
-        ])
+        if args.stick:
+            pipeline = Pipeline(
+                [Windower(1),
+                 Ensure2D(orientation='row')
+            ])
+        else:
+            b,a = butter(FILTER_ORDER,
+                        (LOWCUT / S_RATE / 2., HIGHCUT / S_RATE / 2.),
+                        'bandpass')
+            pipeline = Pipeline([
+                Windower(int(S_RATE * WIN_SIZE)),
+                Filter(b, a=a,
+                    overlap=(int(S_RATE * WIN_SIZE) -
+                                int(S_RATE * READ_LENGTH))),
+                FeatureExtractor([('MAV', MeanAbsoluteValue())],
+                                n_channels),
+                Ensure2D(orientation='row'),
+                Normalize()
+            ])
 
         print('Pipeline ok...')
         return pipeline
@@ -262,9 +268,9 @@ class RealTimeControl(_BaseTask):
         self.iti_timer.reset()
 
         # create wave form for this trial
-        theta = 0
-        self.wave = iter(self.wave)
-        self.timepoints = iter(self.timepoints)
+        # theta = 0
+        self.wave_iter = iter(self.wave)         # changed name of variable so that it doesn't overwrite the standard self.wave
+        self.timepoints_iter = iter(self.timepoints)        # changed name of variable so that it doesn't overwrite the standard self.timepoints
 
         trial.add_array('data_raw', stack_axis=1)
         trial.add_array('data_proc', stack_axis=1)
@@ -277,7 +283,11 @@ class RealTimeControl(_BaseTask):
     def update_iti(self, data):
         data_proc = self.pipeline.process(data)
 
-        muscle_t = data_proc[0][CONTROL_CHANNELS[0]] - data_proc[0][CONTROL_CHANNELS[1]]   # muscle position at this time
+        if args.stick:
+            # channels opposite of muscles, as we want the movement to the right be positive 
+            muscle_t = data_proc[1][0] - data_proc[0][0]
+        else:
+            muscle_t = data_proc[0][CONTROL_CHANNELS[0]] - data_proc[0][CONTROL_CHANNELS[1]]   # muscle position at this time
         wave_t = 0         # wave position at this time 
         error = muscle_t - wave_t
         self.cursor.pos = muscle_t, 0 #change to plot muscle_t , y = initial poit (top of screen)
@@ -292,9 +302,12 @@ class RealTimeControl(_BaseTask):
 
     def update_trial(self,data):
         data_proc = self.pipeline.process(data)
-        muscle_t = data_proc[0][CONTROL_CHANNELS[0]] - data_proc[0][CONTROL_CHANNELS[1]]   # muscle position at this time
-        wave_t = next(self.wave)
-        time_t = next(self.timepoints)
+        if args.stick:
+            muscle_t = data_proc[1][0] - data_proc[0][0]
+        else:
+            muscle_t = data_proc[0][CONTROL_CHANNELS[0]] - data_proc[0][CONTROL_CHANNELS[1]]   # muscle position at this time
+        wave_t = next(self.wave_iter)
+        time_t = next(self.timepoints_iter)
         error = muscle_t - wave_t
         self.cursor.pos = muscle_t, time_t #change to plot muscle_t
         
@@ -309,7 +322,10 @@ class RealTimeControl(_BaseTask):
 
     def update_score(self, data):
         data_proc = self.pipeline.process(data)
-        muscle_t = data_proc[0][CONTROL_CHANNELS[0]] - data_proc[0][CONTROL_CHANNELS[1]]   # muscle position at this time
+        if args.stick:
+            muscle_t = data_proc[1][0] - data_proc[0][0]
+        else:
+            muscle_t = data_proc[0][CONTROL_CHANNELS[0]] - data_proc[0][CONTROL_CHANNELS[1]]   # muscle position at this time
         wave_t = 0         # wave position at this time
         error = muscle_t - wave_t
         self.cursor.pos = error, 0
@@ -373,6 +389,7 @@ if __name__ == '__main__':
     source.add_argument('--myo', action='store_true')
     source.add_argument('--noise', action='store_true')
     source.add_argument('--quattro', action='store_true')
+    source.add_argument('--stick', action='store_true')
     args = parser.parse_args()
 
     CONFIG = 'config.ini'
@@ -420,6 +437,10 @@ if __name__ == '__main__':
                         mode=313,
                         units='normalized',
                         data_port=50043)
+    elif args.stick:
+        from pydaqs.stick import Stick
+        S_RATE = 1/READ_LENGTH
+        dev = Stick(rate=S_RATE, dev_id=0, mode='divaxis')
 
     exp = Experiment(daq=dev, subject=SUBJECT, allow_overwrite=False)
 
@@ -472,49 +493,51 @@ if __name__ == '__main__':
         DISPLAY_MONITOR = cp.getint('control', 'display_monitor')
 
         # download calibration info
-        root_subject = os.path.join(os.path.dirname(os.path.realpath(__file__)),'data', exp.subject)
-        subfolders = [f.path for f in os.scandir(root_subject) if f.is_dir()]
-        calib_ind = np.array([])
-        for i in range(len(subfolders)):
-            if 'calibration_20' in subfolders[i]:
-                calib_ind = np.append(calib_ind, i)
-        last_calib = subfolders[int(calib_ind[-1:])]
+        # no calibration for stick
+        if ~args.stick:
+            root_subject = os.path.join(os.path.dirname(os.path.realpath(__file__)),'data', exp.subject)
+            subfolders = [f.path for f in os.scandir(root_subject) if f.is_dir()]
+            calib_ind = np.array([])
+            for i in range(len(subfolders)):
+                if 'calibration_20' in subfolders[i]:
+                    calib_ind = np.append(calib_ind, i)
+            last_calib = subfolders[int(calib_ind[-1:])]
 
-        f = h5py.File([last_calib + '\\c_min.hdf5'][0], 'r')
-        c_min = f['0'][0:]
-        print('c_min: ', c_min)
-        f = h5py.File([last_calib + '\\c_max.hdf5'][0], 'r')
-        c_max = f['0'][0:]
-        print('c_max: ', c_max)
-        f = h5py.File([last_calib + '\\c_select.hdf5'][0], 'r')
-        c_select = f['0'][0:]
-        print('c_select: ',c_select)
+            f = h5py.File([last_calib + '\\c_min.hdf5'][0], 'r')
+            c_min = f['0'][0:]
+            print('c_min: ', c_min)
+            f = h5py.File([last_calib + '\\c_max.hdf5'][0], 'r')
+            c_max = f['0'][0:]
+            print('c_max: ', c_max)
+            f = h5py.File([last_calib + '\\c_select.hdf5'][0], 'r')
+            c_select = f['0'][0:]
+            print('c_select: ',c_select)
 
-        # determine control channels
-        CONTROL_CHANNELS = np.array([])
-        for i in range(channels_task):
-            CONTROL_CHANNELS = np.append(CONTROL_CHANNELS, np.where(c_select == i)[0][0])
-        CONTROL_CHANNELS = CONTROL_CHANNELS.astype(int)
-        control_channels_overwrite = cp.getint('control', 'control_channels_overwrite')
-        if control_channels_overwrite:
-            CONTROL_CHANNELS_NEW = np.array([])
-            new_channel_list = list(map(int, (cp.get('control', 'control_channels').split(','))))
+            # determine control channels
+            CONTROL_CHANNELS = np.array([])
+            for i in range(channels_task):
+                CONTROL_CHANNELS = np.append(CONTROL_CHANNELS, np.where(c_select == i)[0][0])
+            CONTROL_CHANNELS = CONTROL_CHANNELS.astype(int)
+            control_channels_overwrite = cp.getint('control', 'control_channels_overwrite')
+            if control_channels_overwrite:
+                CONTROL_CHANNELS_NEW = np.array([])
+                new_channel_list = list(map(int, (cp.get('control', 'control_channels').split(','))))
 
-            print('CHANNELS: ', CHANNELS)
-            print('new_channel_list ', new_channel_list)
+                print('CHANNELS: ', CHANNELS)
+                print('new_channel_list ', new_channel_list)
 
-            for i in range(len(new_channel_list)):
-                print(CHANNELS.index(new_channel_list[i]))
-                CONTROL_CHANNELS_NEW = np.append(CONTROL_CHANNELS_NEW, CHANNELS.index(new_channel_list[i]))
-                CONTROL_CHANNELS_NEW = CONTROL_CHANNELS_NEW.astype(int)
-            if len(CONTROL_CHANNELS_NEW) != channels_task:
-                raise ValueError('Trying to overwrite the wrong amount of control channels.')
-            elif np.any([i > n_channels-1 for i in CONTROL_CHANNELS_NEW]):
-                raise ValueError('The value for one of the control channels is higher than the amount of channels in the experiment.')
-            elif np.any([[c_min[i] == 0 for i in CONTROL_CHANNELS_NEW], [c_max[i] == 1 for i in CONTROL_CHANNELS_NEW]]):
-                raise ValueError('One of the control channels is not calibrated.')
-            else:
-                CONTROL_CHANNELS = CONTROL_CHANNELS_NEW
+                for i in range(len(new_channel_list)):
+                    print(CHANNELS.index(new_channel_list[i]))
+                    CONTROL_CHANNELS_NEW = np.append(CONTROL_CHANNELS_NEW, CHANNELS.index(new_channel_list[i]))
+                    CONTROL_CHANNELS_NEW = CONTROL_CHANNELS_NEW.astype(int)
+                if len(CONTROL_CHANNELS_NEW) != channels_task:
+                    raise ValueError('Trying to overwrite the wrong amount of control channels.')
+                elif np.any([i > n_channels-1 for i in CONTROL_CHANNELS_NEW]):
+                    raise ValueError('The value for one of the control channels is higher than the amount of channels in the experiment.')
+                elif np.any([[c_min[i] == 0 for i in CONTROL_CHANNELS_NEW], [c_max[i] == 1 for i in CONTROL_CHANNELS_NEW]]):
+                    raise ValueError('One of the control channels is not calibrated.')
+                else:
+                    CONTROL_CHANNELS = CONTROL_CHANNELS_NEW
 
         # read in wave information
         WAVE_FREQ = cp.getfloat('experiment', 'wave_frequency')
