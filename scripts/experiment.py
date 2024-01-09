@@ -218,8 +218,9 @@ class RealTimeControl(_BaseTask):
     def prepare_design(self, design):
         for b in range(N_BLOCKS):
             block = design.add_block()
-            for t in range(N_TRIALS):
-                    block.add_trial()
+            for noise in NOISE:
+                    block.add_trial(attrs={'noise': noise})
+            block.shuffle()                    
 
     def prepare_graphics(self, container):
         self.canvas = Canvas()
@@ -232,7 +233,7 @@ class RealTimeControl(_BaseTask):
         self.cursor = Circle(diameter=.1, color= 'green')
         self.cursor.hide()
         self.text_score = Text(text='test', color='white')
-        self.text_score.pos = (0,0)
+        self.text_score.pos = (-0.8,0)
         self.text_score.hide()
         
         self.timepoints = np.arange(1, -1, -2*READ_LENGTH/TRIAL_LENGTH)
@@ -263,19 +264,29 @@ class RealTimeControl(_BaseTask):
         config.read(CONFIG)
         with open(block_savedir+"\\config.ini", 'w') as f:
             config.write(f)
+            
+    # def noise_level(self):
+    #     noise_levels = np.random.choice([0, 0.1, 0.2, 0.3], size=20)
+
+    #     for noise_level in noise_levels:
+    #         self.run_trial(noise_level=noise_level)
 
     def run_trial(self, trial):
         self.iti_timer.reset()
-
+        
         # create wave form for this trial
         # theta = 0
         self.wave_iter = iter(self.wave)         # changed name of variable so that it doesn't overwrite the standard self.wave
         self.timepoints_iter = iter(self.timepoints)        # changed name of variable so that it doesn't overwrite the standard self.timepoints
+        self.noise = np.random.normal(0, scale=self.trial.attrs['noise'], size=len(self.wave))
+        self.noise_iter = iter(self.noise)
 
         trial.add_array('data_raw', stack_axis=1)
         trial.add_array('data_proc', stack_axis=1)
         trial.add_array('error', stack_axis=1)
         trial.add_array('wave', stack_axis=1)
+        trial.add_array('noise', stack_axis=1)
+        trial.add_array('cursor_position', stack_axis=1)
 
         self.pipeline.clear()
         self.connect(self.daqstream.updated, self.update_iti)
@@ -285,31 +296,38 @@ class RealTimeControl(_BaseTask):
 
         if args.stick:
             # channels opposite of muscles, as we want the movement to the right be positive 
-            muscle_t = data_proc[1][0] - data_proc[0][0]
+            muscle_t = 2*(data_proc[1][0] - data_proc[0][0])
         else:
             muscle_t = data_proc[0][CONTROL_CHANNELS[0]] - data_proc[0][CONTROL_CHANNELS[1]]   # muscle position at this time
         wave_t = 0         # wave position at this time 
         error = muscle_t - wave_t
+        noise_t = 0
         self.cursor.pos = muscle_t, 0 #change to plot muscle_t , y = initial poit (top of screen)
-        
 
         self.trial.arrays['data_raw'].stack(data)
         self.trial.arrays['data_proc'].stack(np.transpose(data_proc))
         self.trial.arrays['error'].stack(error)
         self.trial.arrays['wave'].stack(wave_t)
+        self.trial.arrays['noise'].stack(noise_t)
+        self.trial.arrays['cursor_position'].stack(muscle_t)
 
         self.iti_timer.increment()
 
-    def update_trial(self,data):
+    def update_trial(self,data, noise_level=0):
         data_proc = self.pipeline.process(data)
         if args.stick:
-            muscle_t = data_proc[1][0] - data_proc[0][0]
+            muscle_t = 2*(data_proc[1][0] - data_proc[0][0])
         else:
             muscle_t = data_proc[0][CONTROL_CHANNELS[0]] - data_proc[0][CONTROL_CHANNELS[1]]   # muscle position at this time
         wave_t = next(self.wave_iter)
         time_t = next(self.timepoints_iter)
+        noise_t = next(self.noise_iter)
+        
+        cursor_position = muscle_t + noise_t
+        self.cursor.pos = cursor_position, time_t #change to plot muscle_t
+        
         error = muscle_t - wave_t
-        self.cursor.pos = muscle_t, time_t #change to plot muscle_t
+        # error = cursor_position - wave_t
         
         self.text_score.hide()
 
@@ -317,16 +335,19 @@ class RealTimeControl(_BaseTask):
         self.trial.arrays['data_proc'].stack(np.transpose(data_proc))
         self.trial.arrays['error'].stack(error)
         self.trial.arrays['wave'].stack(wave_t)
+        self.trial.arrays['noise'].stack(noise_t)
+        self.trial.arrays['cursor_position'].stack(cursor_position)
 
         self.trial_timer.increment()
 
     def update_score(self, data):
         data_proc = self.pipeline.process(data)
         if args.stick:
-            muscle_t = data_proc[1][0] - data_proc[0][0]
+            muscle_t = 2*(data_proc[1][0] - data_proc[0][0])
         else:
             muscle_t = data_proc[0][CONTROL_CHANNELS[0]] - data_proc[0][CONTROL_CHANNELS[1]]   # muscle position at this time
         wave_t = 0         # wave position at this time
+        noise_t = 0
         error = muscle_t - wave_t
         self.cursor.pos = error, 0
 
@@ -334,6 +355,8 @@ class RealTimeControl(_BaseTask):
         self.trial.arrays['data_proc'].stack(np.transpose(data_proc))
         self.trial.arrays['error'].stack(error)
         self.trial.arrays['wave'].stack(wave_t)
+        self.trial.arrays['noise'].stack(noise_t)
+        self.trial.arrays['cursor_position'].stack(muscle_t)
 
         self.score_timer.increment()
 
@@ -349,7 +372,9 @@ class RealTimeControl(_BaseTask):
         self.wave_line.hide()
         # calculate score
         self.score = 1. - np.mean(np.absolute(self.trial.arrays['error'].data))
-        self.text_score.qitem.setText("{:.0f} %".format(self.score*100))
+        # self.text_score.qitem.setText("{:.0f} %".format(self.score*100))
+        # self.text_score.show()
+        self.text_score.qitem.setText("Rate your control over the completed trial.")
         self.text_score.show()
         self.score_timer.reset()
         self.disconnect(self.daqstream.updated, self.update_trial)
@@ -491,7 +516,12 @@ if __name__ == '__main__':
         TRIAL_LENGTH = cp.getfloat('control', 'trial_length')
         SCORE_LENGTH = cp.getfloat('control', 'score_present')
         DISPLAY_MONITOR = cp.getint('control', 'display_monitor')
-
+        NOISE_LEVELS = list(map(float, (cp.get('experiment', 'noise_levels').split(','))))
+        print(NOISE_LEVELS)
+        # List of noise levels = length of trials
+        # NOISE = np.array(NOISE_LEVELS*(N_TRIALS/len(NOISE_LEVELS))) 
+        NOISE = np.tile(NOISE_LEVELS, int(N_TRIALS/len(NOISE_LEVELS)))
+        
         # download calibration info
         # no calibration for stick
         if ~args.stick:
