@@ -278,7 +278,9 @@ class RealTimeControl(_BaseTask):
         # theta = 0
         self.wave_iter = iter(self.wave)         # changed name of variable so that it doesn't overwrite the standard self.wave
         self.timepoints_iter = iter(self.timepoints)        # changed name of variable so that it doesn't overwrite the standard self.timepoints
-        self.noise = np.random.normal(0, scale=self.trial.attrs['noise'], size=len(self.wave))
+        # self.noise = np.random.normal(0, scale=self.trial.attrs['noise'], size=len(self.wave))
+        noise_ampl = self.trial.attrs['noise']
+        self.noise =  noise_ampl * np.sin(2 * np.pi * WAVE_FREQ * (self.timepoints * TRIAL_LENGTH/2) + theta)
         self.noise_iter = iter(self.noise)
 
         trial.add_array('data_raw', stack_axis=1)
@@ -374,6 +376,11 @@ class RealTimeControl(_BaseTask):
         self.score = 1. - np.mean(np.absolute(self.trial.arrays['error'].data))
         # self.text_score.qitem.setText("{:.0f} %".format(self.score*100))
         # self.text_score.show()
+        # Save control type
+        if args.trigno:
+            self.trial.attrs['emg'] = 1
+        else:
+            self.trial.attrs['emg'] = 0
         self.text_score.qitem.setText("Rate your control over the completed trial.")
         self.text_score.show()
         self.score_timer.reset()
