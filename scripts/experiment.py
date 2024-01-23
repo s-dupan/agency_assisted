@@ -280,7 +280,7 @@ class RealTimeControl(_BaseTask):
         self.timepoints_iter = iter(self.timepoints)        # changed name of variable so that it doesn't overwrite the standard self.timepoints
         # self.noise = np.random.normal(0, scale=self.trial.attrs['noise'], size=len(self.wave))
         noise_ampl = self.trial.attrs['noise']
-        self.noise =  noise_ampl * np.sin(2 * np.pi * WAVE_FREQ * (self.timepoints * TRIAL_LENGTH/2) + theta)
+        self.noise =  noise_ampl * np.sin(2 * np.pi * WAVE_FREQ * (self.timepoints * TRIAL_LENGTH/2) + np.pi/2)
         self.noise_iter = iter(self.noise)
 
         trial.add_array('data_raw', stack_axis=1)
