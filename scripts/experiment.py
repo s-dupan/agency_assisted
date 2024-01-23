@@ -236,12 +236,31 @@ class RealTimeControl(_BaseTask):
         self.text_score.pos = (-0.8,0)
         self.text_score.hide()
         
+        # self.timepoints = np.arange(1, -1, -2*READ_LENGTH/TRIAL_LENGTH)
+        # theta = 0       # phase
+        # self.wave = WAVE_AMPL * np.sin(2 * np.pi * WAVE_FREQ * (self.timepoints * TRIAL_LENGTH/2) + theta)
+        # self.wave_line = Sinusoid(x=self.wave, y=self.timepoints, color='white', linewidth=0.01)
+        # # self.wave.hide()
+        # self.task_canvas.add_item(self.wave_line)
+        
+        # wave that we want to follow
         self.timepoints = np.arange(1, -1, -2*READ_LENGTH/TRIAL_LENGTH)
-        theta = 0       # phase
-        self.wave = WAVE_AMPL * np.sin(2 * np.pi * WAVE_FREQ * (self.timepoints * TRIAL_LENGTH/2) + theta)
-        self.wave_line = Sinusoid(x=self.wave, y=self.timepoints, color='white', linewidth=0.01)
-        # self.wave.hide()
+        theta = np.pi     # phase
+        self.wave = WAVE_AMPL * np.sin(2 * np.pi * WAVE_FREQ * (self.timepoints * TRIAL_LENGTH) + theta)
+        # make wave twice as long, as we will move it upwards on the screen
+        # you need to take off 1 element of timepoints as you will generate 1 point less for wave
+        self.time_double = np.arange(1, -3, -2*READ_LENGTH/TRIAL_LENGTH)
+        self.time_double = self.time_double[:-1]
+        # we need to interpolate the wave to make it twice as long
+        middle_points = self.wave[:-1] + np.diff(self.wave)/2
+        self.wave_double = np.empty(2*self.wave.size - 1)
+        self.wave_double[0::2] = self.wave
+        self.wave_double[1::2] = middle_points
+        self.wave_line = Sinusoid(x=self.wave_double, y=self.time_double, color='white', linewidth=0.01)
+        self.wave_line.hide()
         self.task_canvas.add_item(self.wave_line)
+        # prepare how much the sinusoid will move each step
+        self.move_step = np.arange(0, 2, 2*READ_LENGTH/TRIAL_LENGTH)
     
         # self.task_canvas.add_item(self.basket)
         self.task_canvas.add_item(self.cursor)
@@ -276,11 +295,19 @@ class RealTimeControl(_BaseTask):
         
         # create wave form for this trial
         # theta = 0
-        self.wave_iter = iter(self.wave)         # changed name of variable so that it doesn't overwrite the standard self.wave
-        self.timepoints_iter = iter(self.timepoints)        # changed name of variable so that it doesn't overwrite the standard self.timepoints
+        # self.wave_iter = iter(self.wave)         # changed name of variable so that it doesn't overwrite the standard self.wave
+        # self.timepoints_iter = iter(self.timepoints)        # changed name of variable so that it doesn't overwrite the standard self.timepoints
+        
+        self.wave_iter = iter(self.wave_double)   # watch out! does not work for score anymore if point of wave 
+                                            # at top of screen does not align with point at y = 0
+        # iterate over steps for wave to move
+        self.move_iter = iter(self.move_step) 
+        
         # self.noise = np.random.normal(0, scale=self.trial.attrs['noise'], size=len(self.wave))
         noise_ampl = self.trial.attrs['noise']
         self.noise =  noise_ampl * np.sin(2 * np.pi * WAVE_FREQ * (self.timepoints * TRIAL_LENGTH/2) + np.pi/2)
+        self.noise[:int(1/READ_LENGTH)] = 0      # first second no noise
+        self.noise[int(-1/READ_LENGTH):] = 0     # last second no noise
         self.noise_iter = iter(self.noise)
 
         trial.add_array('data_raw', stack_axis=1)
@@ -322,11 +349,13 @@ class RealTimeControl(_BaseTask):
         else:
             muscle_t = data_proc[0][CONTROL_CHANNELS[0]] - data_proc[0][CONTROL_CHANNELS[1]]   # muscle position at this time
         wave_t = next(self.wave_iter)
-        time_t = next(self.timepoints_iter)
+        time_t = next(self.move_iter)
         noise_t = next(self.noise_iter)
         
+        self.wave_line.pos = 0,time_t
+        
         cursor_position = muscle_t + noise_t
-        self.cursor.pos = cursor_position, time_t #change to plot muscle_t
+        self.cursor.pos = cursor_position, 0 #change to plot muscle_t
         
         error = muscle_t - wave_t
         # error = cursor_position - wave_t
