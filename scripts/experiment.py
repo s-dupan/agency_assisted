@@ -289,7 +289,7 @@ class RealTimeControl(_BaseTask):
         trial.add_array('wave', stack_axis=1)
         trial.add_array('noise', stack_axis=1)
         trial.add_array('cursor_position', stack_axis=1)
-
+ 
         self.pipeline.clear()
         self.connect(self.daqstream.updated, self.update_iti)
 
