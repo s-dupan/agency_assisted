@@ -233,7 +233,7 @@ class RealTimeControl(_BaseTask):
         self.cursor = Circle(diameter=.1, color= 'green')
         self.cursor.hide()
         self.text_score = Text(text='test', color='white')
-        self.text_score.pos = (-0.8,0)
+        self.text_score.pos = (-1,0)
         self.text_score.hide()
         
         # self.timepoints = np.arange(1, -1, -2*READ_LENGTH/TRIAL_LENGTH)
@@ -410,7 +410,7 @@ class RealTimeControl(_BaseTask):
             self.trial.attrs['emg'] = 1
         else:
             self.trial.attrs['emg'] = 0
-        self.text_score.qitem.setText("Rate your control over the completed trial.")
+        self.text_score.qitem.setText("Rate your control over the completed trial: \n 1-9")
         self.text_score.show()
         self.score_timer.reset()
         self.disconnect(self.daqstream.updated, self.update_trial)
