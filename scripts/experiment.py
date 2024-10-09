@@ -481,7 +481,7 @@ if __name__ == '__main__':
             # due to low sampling rate, code won't work if highcut filter is too high
             HIGHCUT = 100
         myo.init(
-            sdk_path=r'C:\Users\Sarah\Documents\5th year\Thesis\coding\myo-python\myo-sdk-win-0.9.0')
+            sdk_path=r'C:\Users\Sigrid\coding\myo-python\myo-sdk-win-0.9.0')
         dev = MyoEMG(channels=CHANNELS, zero_based=False,
                      samples_per_read=int(S_RATE * READ_LENGTH))
     elif args.noise:
