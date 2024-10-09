@@ -57,7 +57,8 @@ class _BaseTask(Task):
     def __init__(self):
         super(_BaseTask, self).__init__()
         self.pipeline = self.make_pipeline()
-
+    
+    ### stick hard coded here - check
     def make_pipeline(self):
         if args.stick:
             pipeline = Pipeline(
@@ -243,6 +244,7 @@ class RealTimeControl(_BaseTask):
         # # self.wave.hide()
         # self.task_canvas.add_item(self.wave_line)
         
+        ### Marina - this is where the wave is defined, so this will have to change
         # wave that we want to follow
         self.timepoints = np.arange(1, -1, -2*READ_LENGTH/TRIAL_LENGTH)
         theta = np.pi     # phase
@@ -293,17 +295,12 @@ class RealTimeControl(_BaseTask):
     def run_trial(self, trial):
         self.iti_timer.reset()
         
-        # create wave form for this trial
-        # theta = 0
-        # self.wave_iter = iter(self.wave)         # changed name of variable so that it doesn't overwrite the standard self.wave
-        # self.timepoints_iter = iter(self.timepoints)        # changed name of variable so that it doesn't overwrite the standard self.timepoints
-        
         self.wave_iter = iter(self.wave_double)   # watch out! does not work for score anymore if point of wave 
                                             # at top of screen does not align with point at y = 0
         # iterate over steps for wave to move
         self.move_iter = iter(self.move_step) 
         
-        # self.noise = np.random.normal(0, scale=self.trial.attrs['noise'], size=len(self.wave))
+        # Marina - here the noise is added, but we probably won't use this
         noise_ampl = self.trial.attrs['noise']
         self.noise =  noise_ampl * np.sin(2 * np.pi * WAVE_FREQ * (self.timepoints * TRIAL_LENGTH/2) + np.pi/2)
         self.noise[:int(1/READ_LENGTH)] = 0      # first second no noise
@@ -343,6 +340,9 @@ class RealTimeControl(_BaseTask):
         self.iti_timer.increment()
 
     def update_trial(self,data, noise_level=0):
+        ### marina -- if we want to make the control look better, we will have to change it here
+        ### first: we know muscle position, and we know what they want to do (i.e. wave), so we could get the cursors position
+        ### closer to the wave by a certain amount
         data_proc = self.pipeline.process(data)
         if args.stick:
             muscle_t = 2*(data_proc[1][0] - data_proc[0][0])
