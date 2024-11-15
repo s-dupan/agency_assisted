@@ -44,6 +44,7 @@ from axopy.features import MeanAbsoluteValue
 
 
 class Normalize(Block):
+    ### Marina - nothing changes here, as we use the same normalisation
     def process(self, data):
         data_norm = (data - c_min)/(c_max-c_min)
         data_norm[data_norm < 0] = 0.0
@@ -54,6 +55,7 @@ class _BaseTask(Task):
 
     Implements the processing pipeline, the daqstream and the trial counter.
     """
+    # Marina - nothing changes here, as we use the same processing of the EMG data
     def __init__(self):
         super(_BaseTask, self).__init__()
         self.pipeline = self.make_pipeline()
@@ -103,7 +105,7 @@ class DataCollection(_BaseTask):
     shown on screeen. Experimenter decides through key presses when muscles
     at rest and when they represent full activity.
     """
-
+    # Marina - this class defines the calibration task for the EMG, so nothing changes here
     def __init__(self):
         super(DataCollection, self).__init__()
         (self.pipeline_raw, self.pipeline_calib) = self.make_pipeline_calib()
@@ -202,7 +204,7 @@ class DataCollection(_BaseTask):
 class RealTimeControl(_BaseTask):
     """Real time abstract control
     """
-
+    # Marina, this is the class for the tracking task, so there will be changes here.
     def __init__(self):
         super(RealTimeControl, self).__init__()
         self.advance_block_key = util.key_return
@@ -217,6 +219,7 @@ class RealTimeControl(_BaseTask):
         self.score_timer.timeout.connect(self.finish_score)
 
     def prepare_design(self, design):
+        ### Marina - instead of the noise levels, we will have different assistance levels added to each trial here
         for b in range(N_BLOCKS):
             block = design.add_block()
             for noise in NOISE:
@@ -244,23 +247,25 @@ class RealTimeControl(_BaseTask):
         # # self.wave.hide()
         # self.task_canvas.add_item(self.wave_line)
         
-        ### Marina - this is where the wave is defined, so this will have to change
-        # wave that we want to follow
-        self.timepoints = np.arange(1, -1, -2*READ_LENGTH/TRIAL_LENGTH)
-        theta = np.pi     # phase
-        self.wave = WAVE_AMPL * np.sin(2 * np.pi * WAVE_FREQ * (self.timepoints * TRIAL_LENGTH) + theta)
-        # make wave twice as long, as we will move it upwards on the screen
-        # you need to take off 1 element of timepoints as you will generate 1 point less for wave
-        self.time_double = np.arange(1, -3, -2*READ_LENGTH/TRIAL_LENGTH)
-        self.time_double = self.time_double[:-1]
-        # we need to interpolate the wave to make it twice as long
-        middle_points = self.wave[:-1] + np.diff(self.wave)/2
-        self.wave_double = np.empty(2*self.wave.size - 1)
-        self.wave_double[0::2] = self.wave
-        self.wave_double[1::2] = middle_points
-        self.wave_line = Sinusoid(x=self.wave_double, y=self.time_double, color='white', linewidth=0.01)
-        self.wave_line.hide()
-        self.task_canvas.add_item(self.wave_line)
+        ### Marina - this is where the wave was defined, but our tracking task will be different
+        ### for each trial, so I have commented it out here, and we will define it in the run_trial function 
+        # # wave that we want to follow
+        # self.timepoints = np.arange(1, -1, -2*READ_LENGTH/TRIAL_LENGTH)
+        # theta = np.pi     # phase
+        # self.wave = WAVE_AMPL * np.sin(2 * np.pi * WAVE_FREQ * (self.timepoints * TRIAL_LENGTH) + theta)
+        # # make wave twice as long, as we will move it upwards on the screen
+        # # you need to take off 1 element of timepoints as you will generate 1 point less for wave
+        # self.time_double = np.arange(1, -3, -2*READ_LENGTH/TRIAL_LENGTH)
+        # self.time_double = self.time_double[:-1]
+        # # we need to interpolate the wave to make it twice as long
+        # middle_points = self.wave[:-1] + np.diff(self.wave)/2
+        # self.wave_double = np.empty(2*self.wave.size - 1)
+        # self.wave_double[0::2] = self.wave
+        # self.wave_double[1::2] = middle_points
+        # self.wave_line = Sinusoid(x=self.wave_double, y=self.time_double, color='white', linewidth=0.01)
+        # self.wave_line.hide()
+        # self.task_canvas.add_item(self.wave_line)
+
         # prepare how much the sinusoid will move each step
         self.move_step = np.arange(0, 2, 2*READ_LENGTH/TRIAL_LENGTH)
     
@@ -295,12 +300,24 @@ class RealTimeControl(_BaseTask):
     def run_trial(self, trial):
         self.iti_timer.reset()
         
-        self.wave_iter = iter(self.wave_double)   # watch out! does not work for score anymore if point of wave 
-                                            # at top of screen does not align with point at y = 0
+        ### Marina - here we will define the tracking pattern for each trial
+
+        # create noise pattern with length longer than trial 
+        # (make it twice as long. That way, when we move it up, it will not abruptly stop at the end of the trial)
+
+        # filter the noise pattern within the bandwidth we want
+
+        # make the noise pattern into an object you can iterate over
+
+        ### Marina - line below is example of how to create an object you can iterate over. As it was 
+        ### related to the sinusoid, I have commented it out.
+        # self.wave_iter = iter(self.wave_double)   # watch out! does not work for score anymore if point of wave 
+        #                                     # at top of screen does not align with point at y = 0
+
         # iterate over steps for wave to move
         self.move_iter = iter(self.move_step) 
         
-        # Marina - here the noise is added, but we probably won't use this
+        # Marina - here the noise is added, but we won't use this. Instead, you will just have to read in the assistance level (see the first line)
         noise_ampl = self.trial.attrs['noise']
         self.noise =  noise_ampl * np.sin(2 * np.pi * WAVE_FREQ * (self.timepoints * TRIAL_LENGTH/2) + np.pi/2)
         self.noise[:int(1/READ_LENGTH)] = 0      # first second no noise
@@ -310,14 +327,17 @@ class RealTimeControl(_BaseTask):
         trial.add_array('data_raw', stack_axis=1)
         trial.add_array('data_proc', stack_axis=1)
         trial.add_array('error', stack_axis=1)
-        trial.add_array('wave', stack_axis=1)
-        trial.add_array('noise', stack_axis=1)
+        ### Marina - the below will probably change to path and assistance. This is not a priority as it is related to saving raw data
+        # trial.add_array('wave', stack_axis=1)
+        # trial.add_array('noise', stack_axis=1)
         trial.add_array('cursor_position', stack_axis=1)
  
         self.pipeline.clear()
         self.connect(self.daqstream.updated, self.update_iti)
 
     def update_iti(self, data):
+        ### Marina - this is the inter-trial interval. So people don't see anything. We just track their info to be able
+        ### to see later if anything went wrong.
         data_proc = self.pipeline.process(data)
 
         if args.stick:
@@ -325,16 +345,18 @@ class RealTimeControl(_BaseTask):
             muscle_t = 2*(data_proc[1][0] - data_proc[0][0])
         else:
             muscle_t = data_proc[0][CONTROL_CHANNELS[0]] - data_proc[0][CONTROL_CHANNELS[1]]   # muscle position at this time
-        wave_t = 0         # wave position at this time 
+        ### Marina - instead of the wave, we will have the tracking pattern here that is equal to 0
+        # wave_t = 0         # wave position at this time 
         error = muscle_t - wave_t
-        noise_t = 0
+        # noise_t = 0
         self.cursor.pos = muscle_t, 0 #change to plot muscle_t , y = initial poit (top of screen)
 
         self.trial.arrays['data_raw'].stack(data)
         self.trial.arrays['data_proc'].stack(np.transpose(data_proc))
         self.trial.arrays['error'].stack(error)
-        self.trial.arrays['wave'].stack(wave_t)
-        self.trial.arrays['noise'].stack(noise_t)
+        ### Marina - the below will probably change to path and assistance. This is not a priority as it is related to saving raw data
+        # self.trial.arrays['wave'].stack(wave_t)
+        # self.trial.arrays['noise'].stack(noise_t)
         self.trial.arrays['cursor_position'].stack(muscle_t)
 
         self.iti_timer.increment()
@@ -348,12 +370,15 @@ class RealTimeControl(_BaseTask):
             muscle_t = 2*(data_proc[1][0] - data_proc[0][0])
         else:
             muscle_t = data_proc[0][CONTROL_CHANNELS[0]] - data_proc[0][CONTROL_CHANNELS[1]]   # muscle position at this time
-        wave_t = next(self.wave_iter)
+        ### Marina - change wave to the tracking pattern we have
+        # wave_t = next(self.wave_iter)
         time_t = next(self.move_iter)
-        noise_t = next(self.noise_iter)
+        # noise_t = next(self.noise_iter)
         
         self.wave_line.pos = 0,time_t
         
+        ### Marina - we want to determine our cursor position here. Instead of the muscle position + noise, it will be 
+        ### the muscle position and assistance (get closer to the tracking pattern by a certain amount)
         cursor_position = muscle_t + noise_t
         self.cursor.pos = cursor_position, 0 #change to plot muscle_t
         
@@ -365,13 +390,16 @@ class RealTimeControl(_BaseTask):
         self.trial.arrays['data_raw'].stack(data)
         self.trial.arrays['data_proc'].stack(np.transpose(data_proc))
         self.trial.arrays['error'].stack(error)
-        self.trial.arrays['wave'].stack(wave_t)
-        self.trial.arrays['noise'].stack(noise_t)
+        ### Marina - the below will probably change to path and assistance. This is not a priority as it is related to saving raw data
+        # self.trial.arrays['wave'].stack(wave_t)
+        # self.trial.arrays['noise'].stack(noise_t)
         self.trial.arrays['cursor_position'].stack(cursor_position)
 
         self.trial_timer.increment()
 
     def update_score(self, data):
+        ### Marina - this is another phase where people don't see anything. We just track their info to be able check later.
+        ### as in the ITI phase, you want to update the wave to the tracking pattern here.
         data_proc = self.pipeline.process(data)
         if args.stick:
             muscle_t = 2*(data_proc[1][0] - data_proc[0][0])
@@ -385,8 +413,9 @@ class RealTimeControl(_BaseTask):
         self.trial.arrays['data_raw'].stack(data)
         self.trial.arrays['data_proc'].stack(np.transpose(data_proc))
         self.trial.arrays['error'].stack(error)
-        self.trial.arrays['wave'].stack(wave_t)
-        self.trial.arrays['noise'].stack(noise_t)
+        ### Marina - the below will probably change to path and assistance. This is not a priority as it is related to saving raw data
+        # self.trial.arrays['wave'].stack(wave_t)
+        # self.trial.arrays['noise'].stack(noise_t)
         self.trial.arrays['cursor_position'].stack(muscle_t)
 
         self.score_timer.increment()
@@ -552,6 +581,11 @@ if __name__ == '__main__':
         TRIAL_LENGTH = cp.getfloat('control', 'trial_length')
         SCORE_LENGTH = cp.getfloat('control', 'score_present')
         DISPLAY_MONITOR = cp.getint('control', 'display_monitor')
+
+        ### Marina - we will have assistance levels instead of noise levels. You'll need to read in
+        ### the assistance levels from the config file, and then create an array with the 
+        ### assistance levels for each trial.
+
         NOISE_LEVELS = list(map(float, (cp.get('experiment', 'noise_levels').split(','))))
         print(NOISE_LEVELS)
         # List of noise levels = length of trials
@@ -604,6 +638,8 @@ if __name__ == '__main__':
                     raise ValueError('One of the control channels is not calibrated.')
                 else:
                     CONTROL_CHANNELS = CONTROL_CHANNELS_NEW
+
+        ### Marina - instead of wave info, we will have info on the noise determining the tracking pattern
 
         # read in wave information
         WAVE_FREQ = cp.getfloat('experiment', 'wave_frequency')
