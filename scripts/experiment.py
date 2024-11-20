@@ -41,6 +41,7 @@ from axopy.pipeline import (Windower, Pipeline, Filter,
 from PyQt5.QtWidgets import QDesktopWidget
 from src.graphics import CalibWidget, Sinusoid
 from axopy.features import MeanAbsoluteValue
+from scipy.signal import butter, lfilter
 
 
 class Normalize(Block):
@@ -248,7 +249,7 @@ class RealTimeControl(_BaseTask):
         # self.task_canvas.add_item(self.wave_line)
         
         ### Marina - this is where the wave was defined, but our tracking task will be different
-        ### for each trial, so I have commented it out here, and we will define it in the run_trial function 
+        ### for each trial, so I have commented it out here, and we will define it in the run_trial function (L.300)
         # # wave that we want to follow
         # self.timepoints = np.arange(1, -1, -2*READ_LENGTH/TRIAL_LENGTH)
         # theta = np.pi     # phase
@@ -297,11 +298,47 @@ class RealTimeControl(_BaseTask):
     #     for noise_level in noise_levels:
     #         self.run_trial(noise_level=noise_level)
 
+    def create_wave(self):
+        # Define the parameters
+        duration = 16  # seconds
+        sampling_interval = 0.02  # seconds (50 Hz sampling rate)
+        sampling_rate = int(1 / sampling_interval)  # 50 samples per second
+        time = np.arange(0, duration, sampling_interval)
+
+        # Generate white noise
+        white_noise = np.random.normal(0, 3, len(time))
+
+        # Design the Butterworth band-pass filter
+        low_cutoff = 0.7  # Hz
+        high_cutoff = 1.0  # Hz
+        order = 4
+
+        # Helper function to create a Butterworth band-pass filter
+        def butter_bandpass(lowcut, highcut, fs, order=4):
+            nyquist = 0.5 * fs
+            low = lowcut / nyquist
+            high = highcut / nyquist
+            b, a = butter(order, [low, high], btype='band')
+            return b, a
+
+        # Helper function to apply the filter
+        def apply_filter(data, lowcut, highcut, fs, order=4):
+            b, a = butter_bandpass(lowcut, highcut, fs, order)
+            return lfilter(b, a, data)
+
+        # Apply the band-pass filter to the white noise
+        filtered_signal = apply_filter(white_noise, low_cutoff, high_cutoff, sampling_rate, order)
+
+        ####### 
+        # Check for max and if over 1, re-run it after the filtering
+        ######
+        return filtered_signal, time
+
     def run_trial(self, trial):
         self.iti_timer.reset()
         
         ### Marina - here we will define the tracking pattern for each trial
-
+        self.wave, self.time = self.create_wave()
         # create noise pattern with length longer than trial 
         # (make it twice as long. That way, when we move it up, it will not abruptly stop at the end of the trial)
 
@@ -313,16 +350,20 @@ class RealTimeControl(_BaseTask):
         ### related to the sinusoid, I have commented it out.
         # self.wave_iter = iter(self.wave_double)   # watch out! does not work for score anymore if point of wave 
         #                                     # at top of screen does not align with point at y = 0
-
+        self.wave_line = Sinusoid(x=self.wave, y=-self.time, color='white', linewidth=0.01)
+        self.wave_iter = iter(self.wave)
         # iterate over steps for wave to move
-        self.move_iter = iter(self.move_step) 
+        self.move_iter = iter(self.move_step)
+
+        self.wave_line.hide()
+        self.task_canvas.add_item(self.wave_line) 
         
         # Marina - here the noise is added, but we won't use this. Instead, you will just have to read in the assistance level (see the first line)
-        noise_ampl = self.trial.attrs['noise']
-        self.noise =  noise_ampl * np.sin(2 * np.pi * WAVE_FREQ * (self.timepoints * TRIAL_LENGTH/2) + np.pi/2)
-        self.noise[:int(1/READ_LENGTH)] = 0      # first second no noise
-        self.noise[int(-1/READ_LENGTH):] = 0     # last second no noise
-        self.noise_iter = iter(self.noise)
+        # noise_ampl = self.trial.attrs['noise']
+        # self.noise =  noise_ampl * np.sin(2 * np.pi * WAVE_FREQ * (self.timepoints * TRIAL_LENGTH/2) + np.pi/2)
+        # self.noise[:int(1/READ_LENGTH)] = 0      # first second no noise
+        # self.noise[int(-1/READ_LENGTH):] = 0     # last second no noise
+        # self.noise_iter = iter(self.noise)
 
         trial.add_array('data_raw', stack_axis=1)
         trial.add_array('data_proc', stack_axis=1)
@@ -346,7 +387,7 @@ class RealTimeControl(_BaseTask):
         else:
             muscle_t = data_proc[0][CONTROL_CHANNELS[0]] - data_proc[0][CONTROL_CHANNELS[1]]   # muscle position at this time
         ### Marina - instead of the wave, we will have the tracking pattern here that is equal to 0
-        # wave_t = 0         # wave position at this time 
+        wave_t = 0         # wave position at this time 
         error = muscle_t - wave_t
         # noise_t = 0
         self.cursor.pos = muscle_t, 0 #change to plot muscle_t , y = initial poit (top of screen)
@@ -371,7 +412,7 @@ class RealTimeControl(_BaseTask):
         else:
             muscle_t = data_proc[0][CONTROL_CHANNELS[0]] - data_proc[0][CONTROL_CHANNELS[1]]   # muscle position at this time
         ### Marina - change wave to the tracking pattern we have
-        # wave_t = next(self.wave_iter)
+        wave_t = next(self.wave_iter)
         time_t = next(self.move_iter)
         # noise_t = next(self.noise_iter)
         
@@ -379,7 +420,7 @@ class RealTimeControl(_BaseTask):
         
         ### Marina - we want to determine our cursor position here. Instead of the muscle position + noise, it will be 
         ### the muscle position and assistance (get closer to the tracking pattern by a certain amount)
-        cursor_position = muscle_t + noise_t
+        cursor_position = muscle_t
         self.cursor.pos = cursor_position, 0 #change to plot muscle_t
         
         error = muscle_t - wave_t
@@ -406,7 +447,7 @@ class RealTimeControl(_BaseTask):
         else:
             muscle_t = data_proc[0][CONTROL_CHANNELS[0]] - data_proc[0][CONTROL_CHANNELS[1]]   # muscle position at this time
         wave_t = 0         # wave position at this time
-        noise_t = 0
+        # noise_t = 0
         error = muscle_t - wave_t
         self.cursor.pos = error, 0
 
