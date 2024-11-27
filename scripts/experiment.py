@@ -300,10 +300,10 @@ class RealTimeControl(_BaseTask):
 
     def create_wave(self):
         # Define the parameters
-        duration = 16  # seconds
+        duration = TRIAL_LENGTH  # seconds
         sampling_interval = 0.02  # seconds (50 Hz sampling rate)
         sampling_rate = int(1 / sampling_interval)  # 50 samples per second
-        time = np.arange(0, duration, sampling_interval)
+        time = np.arange(-0.5*duration, 1.5*duration, sampling_interval)
 
         # Generate white noise
         white_noise = np.random.normal(0, 3, len(time))
