@@ -223,8 +223,8 @@ class RealTimeControl(_BaseTask):
         ### Marina - instead of the noise levels, we will have different assistance levels added to each trial here
         for b in range(N_BLOCKS):
             block = design.add_block()
-            for noise in NOISE:
-                    block.add_trial(attrs={'noise': noise})
+            for assistance in ASSISTANCE:
+                    block.add_trial(attrs={'assistance': assistance})
             block.shuffle()                    
 
     def prepare_graphics(self, container):
@@ -356,12 +356,8 @@ class RealTimeControl(_BaseTask):
         self.wave_line.hide()
         self.task_canvas.add_item(self.wave_line) 
         
-        # Marina - here the noise is added, but we won't use this. Instead, you will just have to read in the assistance level (see the first line)
-        # noise_ampl = self.trial.attrs['noise']
-        # self.noise =  noise_ampl * np.sin(2 * np.pi * WAVE_FREQ * (self.timepoints * TRIAL_LENGTH/2) + np.pi/2)
-        # self.noise[:int(1/READ_LENGTH)] = 0      # first second no noise
-        # self.noise[int(-1/READ_LENGTH):] = 0     # last second no noise
-        # self.noise_iter = iter(self.noise)
+        # read out how much assistance trial has
+        self.assistance_level = self.trial.attrs['assistance']
 
         trial.add_array('data_raw', stack_axis=1)
         trial.add_array('data_proc', stack_axis=1)
@@ -394,8 +390,7 @@ class RealTimeControl(_BaseTask):
         self.trial.arrays['data_proc'].stack(np.transpose(data_proc))
         self.trial.arrays['error'].stack(error)
         ### Marina - the below will probably change to path and assistance. This is not a priority as it is related to saving raw data
-        # self.trial.arrays['wave'].stack(wave_t)
-        # self.trial.arrays['noise'].stack(noise_t)
+        self.trial.arrays['wave'].stack(wave_t)
         self.trial.arrays['cursor_position'].stack(muscle_t)
 
         self.iti_timer.increment()
@@ -416,21 +411,21 @@ class RealTimeControl(_BaseTask):
         
         self.wave_line.pos = 0,time_t
         
-        ### Marina - we want to determine our cursor position here. Instead of the muscle position + noise, it will be 
-        ### the muscle position and assistance (get closer to the tracking pattern by a certain amount)
-        cursor_position = muscle_t
-        self.cursor.pos = cursor_position, 0 #change to plot muscle_t
+        
         
         error = muscle_t - wave_t
-        # error = cursor_position - wave_t
-        
+         
+        # update cursor position
+        cursor_position = muscle_t - (self.assistance_level * error)
+        self.cursor.pos = cursor_position, 0 #change to plot muscle_t
+                
         self.text_score.hide()
 
         self.trial.arrays['data_raw'].stack(data)
         self.trial.arrays['data_proc'].stack(np.transpose(data_proc))
         self.trial.arrays['error'].stack(error)
         ### Marina - the below will probably change to path and assistance. This is not a priority as it is related to saving raw data
-        # self.trial.arrays['wave'].stack(wave_t)
+        self.trial.arrays['wave'].stack(wave_t)
         # self.trial.arrays['noise'].stack(noise_t)
         self.trial.arrays['cursor_position'].stack(cursor_position)
 
@@ -453,7 +448,7 @@ class RealTimeControl(_BaseTask):
         self.trial.arrays['data_proc'].stack(np.transpose(data_proc))
         self.trial.arrays['error'].stack(error)
         ### Marina - the below will probably change to path and assistance. This is not a priority as it is related to saving raw data
-        # self.trial.arrays['wave'].stack(wave_t)
+        self.trial.arrays['wave'].stack(wave_t)
         # self.trial.arrays['noise'].stack(noise_t)
         self.trial.arrays['cursor_position'].stack(muscle_t)
 
@@ -625,11 +620,10 @@ if __name__ == '__main__':
         ### the assistance levels from the config file, and then create an array with the 
         ### assistance levels for each trial.
 
-        NOISE_LEVELS = list(map(float, (cp.get('experiment', 'noise_levels').split(','))))
-        print(NOISE_LEVELS)
-        # List of noise levels = length of trials
-        # NOISE = np.array(NOISE_LEVELS*(N_TRIALS/len(NOISE_LEVELS))) 
-        NOISE = np.tile(NOISE_LEVELS, int(N_TRIALS/len(NOISE_LEVELS)))
+        ASSISTANCE_LEVELS = list(map(float, (cp.get('experiment', 'assistance_levels').split(','))))
+        print(ASSISTANCE_LEVELS)
+        # List of assistance levels = length of trials
+        ASSISTANCE = np.tile(ASSISTANCE_LEVELS, int(N_TRIALS/len(ASSISTANCE_LEVELS)))
         
         # download calibration info
         # no calibration for stick
