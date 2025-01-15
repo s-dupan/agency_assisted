@@ -300,8 +300,8 @@ class RealTimeControl(_BaseTask):
 
     def create_wave(self):
         # Define the parameters
-        duration = 16  # seconds
-        sampling_interval = 0.02  # seconds (50 Hz sampling rate)
+        duration = 2*TRIAL_LENGTH  # seconds
+        sampling_interval = READ_LENGTH  # seconds (50 Hz sampling rate)
         sampling_rate = int(1 / sampling_interval)  # 50 samples per second
         time = np.arange(0, duration, sampling_interval)
 
@@ -310,24 +310,22 @@ class RealTimeControl(_BaseTask):
 
         # Design the Butterworth band-pass filter
         low_cutoff = 0.7  # Hz
-        high_cutoff = 1.0  # Hz
         order = 4
 
         # Helper function to create a Butterworth band-pass filter
-        def butter_bandpass(lowcut, highcut, fs, order=4):
+        def butter_lowpass(lowcut, fs, order=4):
             nyquist = 0.5 * fs
             low = lowcut / nyquist
-            high = highcut / nyquist
-            b, a = butter(order, [low, high], btype='band')
+            b, a = butter(order, low, btype='low')
             return b, a
 
         # Helper function to apply the filter
-        def apply_filter(data, lowcut, highcut, fs, order=4):
-            b, a = butter_bandpass(lowcut, highcut, fs, order)
+        def apply_filter(data, lowcut, fs, order=4):
+            b, a = butter_lowpass(lowcut, fs, order)
             return lfilter(b, a, data)
 
         # Apply the band-pass filter to the white noise
-        filtered_signal = apply_filter(white_noise, low_cutoff, high_cutoff, sampling_rate, order)
+        filtered_signal = apply_filter(white_noise, low_cutoff, sampling_rate, order)
 
         ####### 
         # Check for max and if over 1, re-run it after the filtering
