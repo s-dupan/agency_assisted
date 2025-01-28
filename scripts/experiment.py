@@ -267,9 +267,6 @@ class RealTimeControl(_BaseTask):
         # self.wave_line.hide()
         # self.task_canvas.add_item(self.wave_line)
 
-        # prepare how much the sinusoid will move each step
-        self.move_step = np.arange(0, 2, 2*READ_LENGTH/TRIAL_LENGTH)
-    
         # self.task_canvas.add_item(self.basket)
         self.task_canvas.add_item(self.cursor)
         self.task_canvas.add_item(self.text_score)
@@ -300,7 +297,7 @@ class RealTimeControl(_BaseTask):
 
     def create_wave(self):
         # Define the parameters
-        duration = 2*TRIAL_LENGTH  # seconds
+        duration = TRIAL_LENGTH  # seconds
         sampling_interval = READ_LENGTH  # seconds (50 Hz sampling rate)
         sampling_rate = int(1 / sampling_interval)  # 50 samples per second
         time = np.arange(-0.5*duration, 1.5*duration, sampling_interval)
@@ -351,6 +348,8 @@ class RealTimeControl(_BaseTask):
         self.wave_line = Sinusoid(x=self.wave, y=-self.time, color='white', linewidth=0.01)
         self.wave_iter = iter(self.wave)
         # iterate over steps for wave to move
+        # prepare how much the sinusoid will move each step
+        self.move_step = np.arange(-0.5*TRIAL_LENGTH, 1.5*TRIAL_LENGTH, READ_LENGTH)
         self.move_iter = iter(self.move_step)
 
         self.wave_line.hide()
@@ -363,7 +362,7 @@ class RealTimeControl(_BaseTask):
         trial.add_array('data_proc', stack_axis=1)
         trial.add_array('error', stack_axis=1)
         ### Marina - the below will probably change to path and assistance. This is not a priority as it is related to saving raw data
-        # trial.add_array('wave', stack_axis=1)
+        trial.add_array('wave', stack_axis=1)
         # trial.add_array('noise', stack_axis=1)
         trial.add_array('cursor_position', stack_axis=1)
  
@@ -395,7 +394,7 @@ class RealTimeControl(_BaseTask):
 
         self.iti_timer.increment()
 
-    def update_trial(self,data, noise_level=0):
+    def update_trial(self,data):
         ### marina -- if we want to make the control look better, we will have to change it here
         ### first: we know muscle position, and we know what they want to do (i.e. wave), so we could get the cursors position
         ### closer to the wave by a certain amount
