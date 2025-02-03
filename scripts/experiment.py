@@ -325,7 +325,7 @@ class RealTimeControl(_BaseTask):
         filtered_signal = apply_filter(white_noise, low_cutoff, sampling_rate, order)
 
         ####### 
-        # Check for max and if over 1, re-run it after the filtering
+        # Create a 1 second of zeroes and concatenate infront. And add 1 second also of time at line 352 - Look at iter command
         ######
         return filtered_signal, time
 
@@ -361,6 +361,7 @@ class RealTimeControl(_BaseTask):
         trial.add_array('data_raw', stack_axis=1)
         trial.add_array('data_proc', stack_axis=1)
         trial.add_array('error', stack_axis=1)
+        trial.add_array('error_feedback', stack_axis=1)
         ### Marina - the below will probably change to path and assistance. This is not a priority as it is related to saving raw data
         trial.add_array('wave', stack_axis=1)
         # trial.add_array('noise', stack_axis=1)
@@ -381,13 +382,15 @@ class RealTimeControl(_BaseTask):
             muscle_t = data_proc[0][CONTROL_CHANNELS[0]] - data_proc[0][CONTROL_CHANNELS[1]]   # muscle position at this time
         ### Marina - instead of the wave, we will have the tracking pattern here that is equal to 0
         wave_t = 0         # wave position at this time 
-        error = muscle_t - wave_t
+        error = np.nan
+        error_feedback = np.nan
         # noise_t = 0
         self.cursor.pos = muscle_t, 0 #change to plot muscle_t , y = initial poit (top of screen)
 
         self.trial.arrays['data_raw'].stack(data)
         self.trial.arrays['data_proc'].stack(np.transpose(data_proc))
         self.trial.arrays['error'].stack(error)
+        self.trial.arrays['error_feedback'].stack(error_feedback)
         ### Marina - the below will probably change to path and assistance. This is not a priority as it is related to saving raw data
         self.trial.arrays['wave'].stack(wave_t)
         self.trial.arrays['cursor_position'].stack(muscle_t)
@@ -416,13 +419,15 @@ class RealTimeControl(_BaseTask):
          
         # update cursor position
         cursor_position = muscle_t - (self.assistance_level * error)
+        error_feedback = muscle_t - cursor_position
         self.cursor.pos = cursor_position, 0 #change to plot muscle_t
                 
         self.text_score.hide()
-
+        # Add what she's seeing 
         self.trial.arrays['data_raw'].stack(data)
         self.trial.arrays['data_proc'].stack(np.transpose(data_proc))
         self.trial.arrays['error'].stack(error)
+        self.trial.arrays['error_feedback'].stack(error_feedback)
         ### Marina - the below will probably change to path and assistance. This is not a priority as it is related to saving raw data
         self.trial.arrays['wave'].stack(wave_t)
         # self.trial.arrays['noise'].stack(noise_t)
@@ -440,12 +445,15 @@ class RealTimeControl(_BaseTask):
             muscle_t = data_proc[0][CONTROL_CHANNELS[0]] - data_proc[0][CONTROL_CHANNELS[1]]   # muscle position at this time
         wave_t = 0         # wave position at this time
         # noise_t = 0
-        error = muscle_t - wave_t
-        self.cursor.pos = error, 0
+        error = np.nan
+        self.cursor.pos = muscle_t, 0
+        error_feedback = np.nan
 
+        #### Add error_feed
         self.trial.arrays['data_raw'].stack(data)
         self.trial.arrays['data_proc'].stack(np.transpose(data_proc))
         self.trial.arrays['error'].stack(error)
+        self.trial.arrays['error_feedback'].stack(error_feedback)
         ### Marina - the below will probably change to path and assistance. This is not a priority as it is related to saving raw data
         self.trial.arrays['wave'].stack(wave_t)
         # self.trial.arrays['noise'].stack(noise_t)
@@ -464,7 +472,9 @@ class RealTimeControl(_BaseTask):
         self.cursor.hide()
         self.wave_line.hide()
         # calculate score
-        self.score = 1. - np.mean(np.absolute(self.trial.arrays['error'].data))
+        ###### Add also error_feed
+        self.score = 1. - np.nanmean(np.absolute(self.trial.arrays['error'].data))
+        self.error_feedback = 1. - np.nanmean(np.absolute(self.trial.arrays['error_feedback'].data))
         # self.text_score.qitem.setText("{:.0f} %".format(self.score*100))
         # self.text_score.show()
         # Save control type
