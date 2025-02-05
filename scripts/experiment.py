@@ -297,10 +297,12 @@ class RealTimeControl(_BaseTask):
 
     def create_wave(self):
         # Define the parameters
-        duration = TRIAL_LENGTH  # seconds
+        duration = TRIAL_LENGTH # seconds
         sampling_interval = READ_LENGTH  # seconds (50 Hz sampling rate)
         sampling_rate = int(1 / sampling_interval)  # 50 samples per second
         time = np.arange(-0.5*duration, 1.5*duration, sampling_interval)
+        # added_time = np.arange (0, 1, sampling_interval)
+        # time = np.concatenate((added_time, time1))
 
         # Generate white noise
         white_noise = np.random.normal(0, 3, len(time))
@@ -323,6 +325,8 @@ class RealTimeControl(_BaseTask):
 
         # Apply the band-pass filter to the white noise
         filtered_signal = apply_filter(white_noise, low_cutoff, sampling_rate, order)
+        # zero_array = np.zeros_like(added_time)
+        # filtered_signal = np.concatenate((zero_array, filtered_signal1))
 
         ####### 
         # Create a 1 second of zeroes and concatenate infront. And add 1 second also of time at line 352 - Look at iter command
@@ -349,7 +353,7 @@ class RealTimeControl(_BaseTask):
         self.wave_iter = iter(self.wave)
         # iterate over steps for wave to move
         # prepare how much the sinusoid will move each step
-        self.move_step = np.arange(-0.5*TRIAL_LENGTH, 1.5*TRIAL_LENGTH, READ_LENGTH)
+        self.move_step = np.arange(-0.5 * TRIAL_LENGTH, 1.5*TRIAL_LENGTH, READ_LENGTH)
         self.move_iter = iter(self.move_step)
 
         self.wave_line.hide()
@@ -419,7 +423,7 @@ class RealTimeControl(_BaseTask):
          
         # update cursor position
         cursor_position = muscle_t - (self.assistance_level * error)
-        error_feedback = muscle_t - cursor_position
+        error_feedback = cursor_position - wave_t
         self.cursor.pos = cursor_position, 0 #change to plot muscle_t
                 
         self.text_score.hide()
