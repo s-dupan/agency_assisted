@@ -301,8 +301,6 @@ class RealTimeControl(_BaseTask):
         sampling_interval = READ_LENGTH  # seconds (50 Hz sampling rate)
         sampling_rate = int(1 / sampling_interval)  # 50 samples per second
         time = np.arange(-0.5*duration, 1.5*duration, sampling_interval)
-        # added_time = np.arange (0, 1, sampling_interval)
-        # time = np.concatenate((added_time, time1))
 
         # Generate white noise
         white_noise = np.random.normal(0, 3, len(time))
@@ -325,12 +323,7 @@ class RealTimeControl(_BaseTask):
 
         # Apply the band-pass filter to the white noise
         filtered_signal = apply_filter(white_noise, low_cutoff, sampling_rate, order)
-        # zero_array = np.zeros_like(added_time)
-        # filtered_signal = np.concatenate((zero_array, filtered_signal1))
 
-        ####### 
-        # Create a 1 second of zeroes and concatenate infront. And add 1 second also of time at line 352 - Look at iter command
-        ######
         return filtered_signal, time
 
     def run_trial(self, trial):
@@ -349,11 +342,12 @@ class RealTimeControl(_BaseTask):
         ### related to the sinusoid, I have commented it out.
         # self.wave_iter = iter(self.wave_double)   # watch out! does not work for score anymore if point of wave 
         #                                     # at top of screen does not align with point at y = 0
-        self.wave_line = Sinusoid(x=self.wave, y=-self.time, color='white', linewidth=0.01)
+        y_offset = 1
+        self.wave_line = Sinusoid(x=self.wave, y=-self.time + y_offset, color='white', linewidth=0.01)
         self.wave_iter = iter(self.wave)
         # iterate over steps for wave to move
         # prepare how much the sinusoid will move each step
-        self.move_step = np.arange(-0.5 * TRIAL_LENGTH, 1.5*TRIAL_LENGTH, READ_LENGTH)
+        self.move_step = np.arange(-0.5 * TRIAL_LENGTH, 1.5 * TRIAL_LENGTH, READ_LENGTH)
         self.move_iter = iter(self.move_step)
 
         self.wave_line.hide()
